@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcard Jepang Interaktif</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #e2e8f0; /* Latar belakang abu-abu terang */
+        }
+        .flashcard-container {
+            perspective: 1000px; /* Diperlukan untuk efek flip 3D */
+            width: 100%;
+            max-width: 400px; /* Lebar maksimum kartu */
+            height: 250px; /* Tinggi kartu */
+        }
+        .flashcard {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s; /* Animasi flip */
+            border-radius: 1rem; /* Sudut membulat */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Bayangan */
+        }
+        .flashcard.flipped {
+            transform: rotateY(180deg);
+        }
+        .flashcard-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden; /* Sembunyikan sisi belakang saat tidak menghadap */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .flashcard-front {
+            background-color: #ffffff; /* Latar depan kartu putih */
+            color: #1a202c; /* Warna teks depan (hampir hitam) */
+        }
+        .flashcard-back {
+            background-color: #2d3748; /* Latar belakang kartu hitam kebiruan */
+            color: #ffffff; /* Warna teks belakang putih */
+            transform: rotateY(180deg);
+        }
+        .flashcard-char {
+            font-size: 5rem; /* Ukuran karakter utama */
+            font-weight: 700;
+            line-height: 1;
+        }
+        .flashcard-reading-front { /* Gaya untuk bacaan di sisi depan */
+            font-size: 1.5rem; /* Ukuran teks bacaan di depan */
+            font-weight: 400;
+            margin-top: 0.5rem;
+            color: #2d3748; /* Warna teks yang lebih gelap (hampir hitam) */
+        }
+        .flashcard-meaning {
+            font-size: 1.875rem; /* Ukuran teks arti (sekarang lebih besar karena sendiri) */
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .fade-enter-from, .fade-leave-to {
+            opacity: 0;
+            transform: translateX(20px); /* Efek geser saat masuk/keluar */
+        }
+        .fade-leave-from, .fade-enter-to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Gaya untuk daftar sebagai bagian (section) */
+        .list-section {
+            background-color: #ffffff;
+            border-radius: 1rem;
+            padding: 2rem;
+            max-height: 500px; /* Tinggi maksimum untuk daftar agar bisa di-scroll */
+            overflow-y: auto; /* Aktifkan scroll vertikal */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Bayangan */
+        }
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .list-item:hover {
+            background-color: #f0f4f8;
+        }
+        .list-item:last-child {
+            border-bottom: none;
+        }
+        .list-char {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1a202c;
+        }
+        .list-reading {
+            font-size: 1rem;
+            color: #2d3748;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6 md:p-8">
+
+    <h1 class="text-3xl sm:text-4xl font-bold text-gray-800 mb-8 text-center">Flashcard Jepang Interaktif</h1>
+
+    <div class="flex flex-col lg:flex-row items-start lg:items-center justify-center gap-8 w-full max-w-5xl">
+
+        <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-6 flex flex-col items-center">
+            <div class="flex flex-wrap justify-center gap-3 mb-6">
+                <button id="hiraganaBtn" class="px-5 py-2 rounded-full text-lg font-semibold transition-all duration-200 bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-opacity-50">Hiragana</button>
+                <button id="katakanaBtn" class="px-5 py-2 rounded-full text-lg font-semibold transition-all duration-200 bg-gray-800 text-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-700 focus:ring-opacity-50">Katakana</button>
+                <button id="kanjiBtn" class="px-5 py-2 rounded-full text-lg font-semibold transition-all duration-200 bg-gray-800 text-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-700 focus:ring-opacity-50">Kanji</button>
+            </div>
+
+            <div class="flashcard-container mb-8" id="flashcardContainer">
+                <div class="flashcard cursor-pointer" id="flashcard">
+                    <div class="flashcard-face flashcard-front">
+                        <span id="cardChar" class="flashcard-char"></span>
+                        <span id="cardReadingFront" class="flashcard-reading-front"></span>
+                    </div>
+                    <div class="flashcard-face flashcard-back">
+                        <span id="cardMeaning" class="flashcard-meaning"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap justify-center gap-4 w-full">
+                <button id="prevBtn" class="flex-1 px-6 py-3 rounded-full text-lg font-semibold transition-all duration-200 bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-opacity-50">Sebelumnya</button>
+                <button id="shuffleBtn" class="flex-1 px-6 py-3 rounded-full text-lg font-semibold transition-all duration-200 bg-gray-700 text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-opacity-50">Acak</button>
+                <button id="nextBtn" class="flex-1 px-6 py-3 rounded-full text-lg font-semibold transition-all duration-200 bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-opacity-50">Selanjutnya</button>
+            </div>
+        </div>
+
+        <div id="listSection" class="w-full max-w-md lg:max-w-none lg:flex-1 list-section">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center" id="menuTitle">Daftar Hiragana</h2>
+            <div id="menuList" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        // Data untuk flashcard
+        const hiragana = [
+            { char: "あ", reading: "a", meaning: "a (suara)" },
+            { char: "い", reading: "i", meaning: "i (suara)" },
+            { char: "う", reading: "u", meaning: "u (suara)" },
+            { char: "え", reading: "e", meaning: "e (suara)" },
+            { char: "お", reading: "o", meaning: "o (suara)" },
+            { char: "か", reading: "ka", meaning: "ka" },
+            { char: "き", reading: "ki", meaning: "ki" },
+            { char: "く", reading: "ku", meaning: "ku" },
+            { char: "け", reading: "ke", meaning: "ke" },
+            { char: "こ", reading: "ko", meaning: "ko" },
+            { char: "さ", reading: "sa", meaning: "sa" },
+            { char: "し", reading: "shi", meaning: "shi" },
+            { char: "す", reading: "su", meaning: "su" },
+            { char: "せ", reading: "se", meaning: "se" },
+            { char: "そ", reading: "so", meaning: "so" },
+            { char: "た", reading: "ta", meaning: "ta" },
+            { char: "ち", reading: "chi", meaning: "chi" },
+            { char: "つ", reading: "tsu", meaning: "tsu" },
+            { char: "て", reading: "te", meaning: "te" },
+            { char: "と", reading: "to", meaning: "to" },
+            { char: "な", reading: "na", meaning: "na" },
+            { char: "に", reading: "ni", meaning: "ni" },
+            { char: "ぬ", reading: "nu", meaning: "nu" },
+            { char: "ね", reading: "ne", meaning: "ne" },
+            { char: "の", reading: "no", meaning: "no" },
+            { char: "は", reading: "ha", meaning: "ha" },
+            { char: "ひ", reading: "hi", meaning: "hi" },
+            { char: "ふ", reading: "fu", meaning: "fu" },
+            { char: "へ", reading: "he", meaning: "he" },
+            { char: "ほ", reading: "ho", meaning: "ho" },
+            { char: "ま", reading: "ma", meaning: "ma" },
+            { char: "み", reading: "mi", meaning: "mi" },
+            { char: "む", reading: "mu", meaning: "mu" },
+            { char: "め", reading: "me", meaning: "me" },
+            { char: "も", reading: "mo", meaning: "mo" },
+            { char: "や", reading: "ya", meaning: "ya" },
+            { char: "ゆ", reading: "yu", meaning: "yu" },
+            { char: "よ", reading: "yo", meaning: "yo" },
+            { char: "ら", reading: "ra", meaning: "ra" },
+            { char: "り", reading: "ri", meaning: "ri" },
+            { char: "る", reading: "ru", meaning: "ru" },
+            { char: "れ", reading: "re", meaning: "re" },
+            { char: "ろ", reading: "ro", meaning: "ro" },
+            { char: "わ", reading: "wa", meaning: "wa" },
+            { char: "を", reading: "wo", meaning: "wo" },
+            { char: "ん", reading: "n", meaning: "n" }
+        ];
+
+        const katakana = [
+            { char: "ア", reading: "a", meaning: "a (suara)" },
+            { char: "イ", reading: "i", meaning: "i (suara)" },
+            { char: "ウ", reading: "u", meaning: "u (suara)" },
+            { char: "エ", reading: "e", meaning: "e (suara)" },
+            { char: "オ", reading: "o", meaning: "o (suara)" },
+            { char: "カ", reading: "ka", meaning: "ka" },
+            { char: "キ", reading: "ki", meaning: "ki" },
+            { char: "ク", reading: "ku", meaning: "ku" },
+            { char: "ケ", reading: "ke", meaning: "ke" },
+            { char: "コ", reading: "ko", meaning: "ko" },
+            { char: "サ", reading: "sa", meaning: "sa" },
+            { char: "シ", reading: "shi", meaning: "shi" },
+            { char: "ス", reading: "su", meaning: "su" },
+            { char: "セ", reading: "se", meaning: "se" },
+            { char: "ソ", reading: "so", meaning: "so" },
+            { char: "タ", reading: "ta", meaning: "ta" },
+            { char: "チ", reading: "chi", meaning: "chi" },
+            { char: "ツ", reading: "tsu", meaning: "tsu" },
+            { char: "テ", reading: "te", meaning: "te" },
+            { char: "ト", reading: "to", meaning: "to" },
+            { char: "ナ", reading: "na", meaning: "na" },
+            { char: "ニ", reading: "ni", meaning: "ni" },
+            { char: "ヌ", reading: "nu", meaning: "nu" },
+            { char: "ネ", reading: "ne", meaning: "ne" },
+            { char: "ノ", reading: "no", meaning: "no" },
+            { char: "ハ", reading: "ha", meaning: "ha" },
+            { char: "ヒ", reading: "hi", meaning: "hi" },
+            { char: "フ", reading: "fu", meaning: "fu" },
+            { char: "ヘ", reading: "he", meaning: "he" },
+            { char: "ホ", reading: "ho", meaning: "ho" },
+            { char: "マ", reading: "ma", meaning: "ma" },
+            { char: "ミ", reading: "mi", meaning: "mi" },
+            { char: "ム", reading: "mu", meaning: "mu" },
+            { char: "メ", reading: "me", meaning: "me" },
+            { char: "モ", reading: "mo", meaning: "mo" },
+            { char: "ヤ", reading: "ya", meaning: "ya" },
+            { char: "ユ", reading: "yu", meaning: "yu" },
+            { char: "ヨ", reading: "yo", meaning: "yo" },
+            { char: "ラ", reading: "ra", meaning: "ra" },
+            { char: "リ", reading: "ri", meaning: "ri" },
+            { char: "ル", reading: "ru", meaning: "ru" },
+            { char: "レ", reading: "re", meaning: "re" },
+            { char: "ロ", reading: "ro", meaning: "ro" },
+            { char: "ワ", reading: "wa", meaning: "wa" },
+            { char: "ヲ", reading: "wo", meaning: "wo" },
+            { char: "ン", reading: "n", meaning: "n" }
+        ];
+
+        const kanji = [
+            { char: "日", reading: "nichi, hi", meaning: "hari, matahari" },
+            { char: "本", reading: "hon, moto", meaning: "buku, asal" },
+            { char: "語", reading: "go", meaning: "bahasa" },
+            { char: "学", reading: "gaku, mana(bu)", meaning: "belajar" },
+            { char: "생", reading: "sei, i(kiru)", meaning: "hidup, siswa" },
+            { char: "私", reading: "watashi", meaning: "saya" },
+            { char: "人", reading: "hito, jin", meaning: "orang" },
+            { char: "大", reading: "dai, oo(kii)", meaning: "besar" },
+            { char: "小", reading: "shou, chii(sai)", meaning: "kecil" },
+            { char: "中", reading: "chuu, naka", meaning: "tengah" },
+            { char: "上", reading: "ue, jou", meaning: "atas" },
+            { char: "下", reading: "shita, ka", meaning: "bawah" },
+            { char: "前", reading: "mae, zen", meaning: "depan" },
+            { char: "後", reading: "ato, go", meaning: "belakang" },
+            { char: "今", reading: "ima, kon", meaning: "sekarang" },
+            { char: "来", reading: "ku(ru), rai", meaning: "datang" },
+            { char: "行", reading: "i(ku), kou", meaning: "pergi" },
+            { char: "見", reading: "mi(ru), ken", meaning: "melihat" },
+            { char: "聞", reading: "ki(ku), bun", meaning: "mendengar" },
+            { char: "食", reading: "ta(beru), shoku", meaning: "makan" },
+            { char: "飲", reading: "no(mu), in", meaning: "minum" },
+            { char: "山", reading: "yama, san", meaning: "gunung" },
+            { char: "川", reading: "kawa, sen", meaning: "sungai" },
+            { char: "田", reading: "ta, den", meaning: "sawah" },
+            { char: "気", reading: "ki", meaning: "semangat, udara" },
+            { char: "天", reading: "ten", meaning: "langit" },
+            { char: "雨", reading: "ame, u", meaning: "hujan" },
+            { char: "電", reading: "den", meaning: "listrik" },
+            { char: "车", reading: "kuruma, sha", meaning: "mobil" },
+            { char: "円", reading: "en", meaning: "yen, lingkaran" }
+        ];
+
+        let currentSet = hiragana; // Set kartu yang sedang aktif
+        let currentIndex = 0; // Indeks kartu yang sedang ditampilkan
+        let isFlipped = false; // Status kartu: terbalik atau tidak
+
+        // Mendapatkan elemen DOM
+        const flashcard = document.getElementById('flashcard');
+        const cardChar = document.getElementById('cardChar');
+        const cardReadingFront = document.getElementById('cardReadingFront');
+        const cardMeaning = document.getElementById('cardMeaning');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const shuffleBtn = document.getElementById('shuffleBtn');
+        const hiraganaBtn = document.getElementById('hiraganaBtn');
+        const katakanaBtn = document.getElementById('katakanaBtn');
+        const kanjiBtn = document.getElementById('kanjiBtn');
+        const typeButtons = [hiraganaBtn, katakanaBtn, kanjiBtn];
+
+        const listSection = document.getElementById('listSection'); // Bagian daftar baru
+        const menuTitle = document.getElementById('menuTitle'); // Judul daftar
+        const menuList = document.getElementById('menuList'); // Kontainer daftar item
+
+        /**
+         * Memperbarui tampilan kartu dengan data dari indeks saat ini.
+         * Menerapkan efek transisi fade-out/fade-in.
+         */
+        function updateCardDisplay() {
+            // Tambahkan kelas untuk efek fade-out
+            flashcard.classList.add('fade-leave-active');
+            flashcard.classList.remove('fade-enter-active');
+            flashcard.classList.add('fade-leave-to');
+            flashcard.classList.remove('fade-enter-from');
+
+            setTimeout(() => {
+                const currentCard = currentSet[currentIndex];
+                cardChar.textContent = currentCard.char;
+                cardReadingFront.textContent = currentCard.reading;
+                cardMeaning.textContent = currentCard.meaning;
+
+                // Hapus kelas fade-out dan tambahkan kelas fade-in
+                flashcard.classList.remove('fade-leave-active', 'fade-leave-to');
+                flashcard.classList.add('fade-enter-active');
+                flashcard.classList.add('fade-enter-from'); // Mulai dari keadaan tersembunyi
+                setTimeout(() => {
+                    flashcard.classList.remove('fade-enter-from'); // Transisi ke keadaan terlihat
+                }, 10); // Sedikit delay untuk memastikan transisi dimulai
+            }, 300); // Durasi fade-out
+        }
+
+        /**
+         * Membalik kartu antara sisi depan dan belakang.
+         */
+        function flipCard() {
+            isFlipped = !isFlipped;
+            if (isFlipped) {
+                flashcard.classList.add('flipped');
+            } else {
+                flashcard.classList.remove('flipped');
+            }
+        }
+
+        /**
+         * Mengubah set kartu yang aktif (Hiragana, Katakana, Kanji).
+         * @param {Array} newSet - Set kartu baru yang akan digunakan.
+         * @param {HTMLElement} activeBtn - Tombol yang harus ditandai sebagai aktif.
+         * @param {string} setTitle - Judul untuk daftar (misal: "Hiragana").
+         */
+        function changeCardSet(newSet, activeBtn, setTitle) {
+            currentSet = newSet;
+            currentIndex = 0; // Reset indeks saat set berubah
+            isFlipped = false; // Pastikan kartu tidak terbalik saat set berubah
+            flashcard.classList.remove('flipped'); // Pastikan kartu menghadap depan
+            updateCardDisplay();
+            menuTitle.textContent = `Daftar ${setTitle}`; // Perbarui judul daftar
+            populateListSection(); // Perbarui daftar saat set berubah
+
+            // Perbarui gaya tombol aktif
+            typeButtons.forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+                btn.classList.add('bg-gray-800', 'text-white', 'hover:bg-gray-900');
+            });
+            activeBtn.classList.remove('bg-gray-800', 'text-white', 'hover:bg-gray-900');
+            activeBtn.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+        }
+
+        /**
+         * Mengacak urutan kartu dalam set yang aktif.
+         */
+        function shuffleCards() {
+            for (let i = currentSet.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [currentSet[i], currentSet[j]] = [currentSet[j], currentSet[i]]; // Tukar elemen
+            }
+            currentIndex = 0; // Mulai dari kartu pertama setelah diacak
+            isFlipped = false; // Pastikan kartu tidak terbalik
+            flashcard.classList.remove('flipped');
+            updateCardDisplay();
+            // populateListSection(); // Baris ini dihapus agar daftar tidak diacak
+        }
+
+        /**
+         * Mengisi bagian daftar dengan karakter dari set saat ini.
+         */
+        function populateListSection() {
+            menuList.innerHTML = ''; // Kosongkan daftar sebelumnya
+            currentSet.forEach((card, index) => {
+                const listItem = document.createElement('div');
+                listItem.classList.add('list-item'); // Menggunakan kelas baru 'list-item'
+                listItem.dataset.index = index; // Simpan indeks untuk navigasi
+
+                const charSpan = document.createElement('span');
+                charSpan.classList.add('list-char'); // Menggunakan kelas baru 'list-char'
+                charSpan.textContent = card.char;
+
+                const readingSpan = document.createElement('span');
+                readingSpan.classList.add('list-reading'); // Menggunakan kelas baru 'list-reading'
+                readingSpan.textContent = card.reading;
+
+                listItem.appendChild(charSpan);
+                listItem.appendChild(readingSpan);
+
+                listItem.addEventListener('click', () => {
+                    currentIndex = index;
+                    isFlipped = false;
+                    flashcard.classList.remove('flipped');
+                    updateCardDisplay();
+                });
+                menuList.appendChild(listItem);
+            });
+        }
+
+        // Event Listeners
+        flashcard.addEventListener('click', flipCard);
+
+        prevBtn.addEventListener('click', () => {
+            currentIndex = (currentIndex - 1 + currentSet.length) % currentSet.length;
+            isFlipped = false; // Pastikan kartu tidak terbalik saat navigasi
+            flashcard.classList.remove('flipped');
+            updateCardDisplay();
+        });
+
+        nextBtn.addEventListener('click', () => {
+            currentIndex = (currentIndex + 1) % currentSet.length;
+            isFlipped = false; // Pastikan kartu tidak terbalik saat navigasi
+            flashcard.classList.remove('flipped');
+            updateCardDisplay();
+        });
+
+        shuffleBtn.addEventListener('click', shuffleCards);
+
+        hiraganaBtn.addEventListener('click', () => changeCardSet(hiragana, hiraganaBtn, 'Hiragana'));
+        katakanaBtn.addEventListener('click', () => changeCardSet(katakana, katakanaBtn, 'Katakana'));
+        kanjiBtn.addEventListener('click', () => changeCardSet(kanji, kanjiBtn, 'Kanji'));
+
+        // Inisialisasi tampilan pertama
+        window.onload = () => {
+            changeCardSet(hiragana, hiraganaBtn, 'Hiragana'); // Panggil dengan judul awal dan akan mengisi daftar
+        };
+    </script>
+</body>
+</html>
